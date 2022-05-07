@@ -1,0 +1,102 @@
+[gd_scene load_steps=11 format=2]
+
+[ext_resource path="res://Terrain.gd" type="Script" id=1]
+[ext_resource path="res://Textures/grass.jpg" type="Texture" id=2]
+[ext_resource path="res://Textures/rock.jpg" type="Texture" id=3]
+[ext_resource path="res://Textures/sand.jpg" type="Texture" id=5]
+
+[sub_resource type="OpenSimplexNoise" id=3]
+octaves = 9
+
+[sub_resource type="Shader" id=17]
+code = "shader_type spatial;
+uniform sampler2D grass_texture;
+uniform sampler2D rock_texture;
+uniform sampler2D sand_texture;
+
+uniform float min_rock_slope:hint_range(0f,1f) = 0.5;
+uniform float max_grass_slope:hint_range(0f,1f) = 0.9;
+uniform float min_rockgrass_height = -8f;
+uniform float max_sand_height = -6f;
+
+varying float normal_y;
+varying float vertex_y;
+
+void vertex(){
+	normal_y = NORMAL.y;
+	vertex_y = VERTEX.y;
+}
+
+void fragment(){
+	//Albedo Values
+	vec3 grass_albedo = texture(grass_texture,UV*4f).xyz;
+	vec3 rock_albedo = texture(rock_texture,UV*4f).xyz;
+	vec3 sand_albedo = texture(sand_texture,UV*4f).xyz;
+	//Weights
+	float rock_grass_weight = normal_y;
+	float sand_rockgrass_weight = vertex_y;
+	//Calculating Rock/Grass Weight
+	rock_grass_weight = max(min_rock_slope, rock_grass_weight);
+	rock_grass_weight = min(max_grass_slope, rock_grass_weight);
+	rock_grass_weight -= min_rock_slope;
+	rock_grass_weight /= max_grass_slope - min_rock_slope;
+	//Calculating Sand/RockGrass Weight
+	sand_rockgrass_weight = max(min_rockgrass_height, sand_rockgrass_weight);
+	sand_rockgrass_weight = min(max_sand_height, sand_rockgrass_weight);
+	sand_rockgrass_weight -= min_rockgrass_height;
+	sand_rockgrass_weight /= max_sand_height - min_rockgrass_height;
+	//Mixing and Assigning Albedo
+	vec3 rockgrass_albedo = mix(rock_albedo, grass_albedo, rock_grass_weight);
+	ALBEDO = mix(sand_albedo, rockgrass_albedo, sand_rockgrass_weight);
+}"
+
+[sub_resource type="ShaderMaterial" id=18]
+shader = SubResource( 17 )
+shader_param/min_rock_slope = 0.5
+shader_param/max_grass_slope = 0.9
+shader_param/min_rockgrass_height = -10.0
+shader_param/max_sand_height = -6.0
+shader_param/grass_texture = ExtResource( 2 )
+shader_param/rock_texture = ExtResource( 3 )
+shader_param/sand_texture = ExtResource( 5 )
+
+[sub_resource type="PlaneMesh" id=10]
+size = Vector2( 256, 256 )
+
+[sub_resource type="SpatialMaterial" id=11]
+albedo_color = Color( 0.160784, 0.619608, 0.694118, 1 )
+
+[sub_resource type="Environment" id=12]
+background_mode = 1
+ambient_light_color = Color( 0.443137, 0.443137, 0.443137, 1 )
+fog_depth_begin = 188.5
+fog_depth_end = 314.3
+
+[node name="Main" type="Spatial"]
+
+[node name="Terrain" type="StaticBody" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -52.2827 )
+script = ExtResource( 1 )
+size = 256
+subdivide = 255
+amplitude = 32
+noise = SubResource( 3 )
+
+[node name="MeshInstance" type="MeshInstance" parent="Terrain"]
+material_override = SubResource( 18 )
+
+[node name="CollisionShape" type="CollisionShape" parent="Terrain"]
+
+[node name="Water" type="MeshInstance" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -10, -52.2827 )
+mesh = SubResource( 10 )
+material/0 = SubResource( 11 )
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource( 12 )
+
+[node name="DirectionalLight" type="DirectionalLight" parent="."]
+transform = Transform( 0.231323, -0.210569, 0.949816, 0, 0.976296, 0.21644, -0.972877, -0.0500675, 0.22584, 0, 156.874, 0 )
+shadow_enabled = true
+directional_shadow_blend_splits = true
+directional_shadow_max_distance = 931.9
